@@ -19,7 +19,7 @@ from ulauncher.api.shared.action.HideWindowAction import HideWindowAction
 
 BASE = Path(__file__).resolve().parent
 CTL = BASE / "powerctl.py"
-ICON = "images/icon.svg"
+ICON = "images/bolt-v2.svg"
 
 # Each manifest keyword gets one separately searchable top-level Ulauncher item.
 # id: (default keyword, controller action, display name, description)

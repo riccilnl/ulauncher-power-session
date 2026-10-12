@@ -3,7 +3,7 @@
   "name": "GNOME Power & Session",
   "description": "Seven independent power and session commands searchable without a prefix",
   "developer_name": "Ricci",
-  "icon": "images/icon.svg",
+  "icon": "images/bolt-v2.svg",
   "options": {
     "query_debounce": 0.1
   },

@@ -86,7 +86,10 @@ class DirectCommandsTests(unittest.TestCase):
 
     def test_same_bolt_icon_all_commands(self):
         self.assertEqual(main.ICON, self.manifest["icon"])
-        self.assertEqual(main.ICON, "images/icon.svg")
+        self.assertEqual(main.ICON, "images/bolt-v2.svg")
+        # Deliberately use a new pathname so Ulauncher 5's
+        # image_loader.load_image(path, size) LRU cache cannot reuse an old pixbuf.
+        self.assertNotEqual(main.ICON, "images/icon.svg")
         svg = (ROOT / main.ICON).read_text()
         self.assertIn('viewBox="0 0 64 64"', svg)
         self.assertIn('fill="#FFD43B"', svg)

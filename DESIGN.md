@@ -16,7 +16,7 @@ Ulauncher 5's `ExtensionSearchMode` returns each `keyword` preference as a stand
 | `restart_keyword` | restart | reboot |
 | `shutdown_keyword` | shutdown | shutdown |
 
-All menu keyword icons are the same `images/icon.svg`: a centered, solid yellow bolt on a square navy background, with no incomplete/crooked circular power-glyph arcs. No Wake Display or parent `power` command.
+All menu keyword icons are the same `images/bolt-v2.svg`: a centered, solid yellow bolt on a square navy background, with no incomplete/crooked circular power-glyph arcs. No Wake Display or parent `power` command.
 
 ## Module contracts
 
