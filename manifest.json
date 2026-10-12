@@ -1,0 +1,19 @@
+{
+  "required_api_version": "^2.0.0",
+  "name": "GNOME Power & Session",
+  "description": "Display sleep, Awake, lock, suspend, log out, reboot and power off for GNOME Wayland",
+  "developer_name": "Ricci",
+  "icon": "images/icon.svg",
+  "options": {
+    "query_debounce": 0.1
+  },
+  "preferences": [
+    {
+      "id": "gnome_power_keyword",
+      "type": "keyword",
+      "name": "Power & Session",
+      "description": "GNOME power and session actions",
+      "default_value": "power"
+    }
+  ]
+}
