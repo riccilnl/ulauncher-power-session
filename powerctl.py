@@ -2,8 +2,6 @@
 from __future__ import annotations
 
 import argparse
-from contextlib import contextmanager
-import fcntl
 import json
 import os
 from pathlib import Path
@@ -56,19 +54,6 @@ class Controller:
         # A previous shortcut used to inhibit *idle*, preventing normal display blanking.
         self.run(["systemctl", "--user", "stop", "awake-inhibit.service"], check=False)
 
-    @contextmanager
-    def state_lock(self):
-        """Serialize Awake transitions from launcher and CLI processes."""
-        self.state_dir.mkdir(parents=True, exist_ok=True)
-        lockpath = self.state_dir / ".lock"
-        with lockpath.open("a+") as fd:
-            os.chmod(lockpath, 0o600)
-            fcntl.flock(fd.fileno(), fcntl.LOCK_EX)
-            try:
-                yield
-            finally:
-                fcntl.flock(fd.fileno(), fcntl.LOCK_UN)
-
     def saved(self):
         if not self.state_file.exists():
             return None
@@ -103,31 +88,9 @@ class Controller:
 
     def awake_on(self):
         self.stop_legacy()
-        existing = self.saved()
-        before = {key: self.get(key) for key in KEYS}
-        if existing is not None:
-            for key in KEYS:
-                if before[key] not in ("'nothing'", existing[key]):
-                    raise PowerError(f"External change detected for {key}; not overwriting")
-        self.snapshot()  # Original state is durable before either GSettings change.
-        changed = []
-        try:
-            for key in KEYS:
-                if before[key] != "'nothing'":
-                    changed.append(key)  # Include failed key: set might partially succeed.
-                    self.set(key, "'nothing'")
-        except PowerError as exc:
-            restore_errors = []
-            for key in reversed(changed):
-                try:
-                    if self.get(key) != before[key]:
-                        self.set(key, before[key])
-                except PowerError as restore_exc:
-                    restore_errors.append(str(restore_exc))
-            if not restore_errors and existing is None:
-                self.state_file.unlink()
-            detail = "; rollback failed: " + "; ".join(restore_errors) if restore_errors else "; rolled back"
-            raise PowerError(f"Awake ON failed: {exc}{detail}") from exc
+        self.snapshot()
+        for key in KEYS:
+            self.set(key, "'nothing'")
         return "Awake ON: AC and battery idle suspend disabled (lid policy unchanged)"
 
     def awake_off(self):
@@ -135,26 +98,14 @@ class Controller:
         originals = self.saved()
         if originals is None:
             return "No Awake backup exists; current settings left unchanged"
-        before = {key: self.get(key) for key in KEYS}
+        # Preflight both keys before writing either.
         for key, original in originals.items():
-            if before[key] not in ("'nothing'", original):
-                raise PowerError(f"External change detected for {key}; backup retained")
-        changed = []
-        try:
-            for key, original in originals.items():
-                if before[key] != original:
-                    changed.append(key)
-                    self.set(key, original)
-        except PowerError as exc:
-            restore_errors = []
-            for key in reversed(changed):
-                try:
-                    if self.get(key) != before[key]:
-                        self.set(key, before[key])
-                except PowerError as restore_exc:
-                    restore_errors.append(str(restore_exc))
-            detail = "; rollback failed: " + "; ".join(restore_errors) if restore_errors else "; rolled back"
-            raise PowerError(f"Awake OFF failed: {exc}{detail}") from exc
+            current = self.get(key)
+            if current not in ("'nothing'", original):
+                raise PowerError(f"Manual settings change detected for {key}; backup retained")
+        for key, original in originals.items():
+            if self.get(key) == "'nothing'":
+                self.set(key, original)
         self.state_file.unlink()
         return "Awake OFF: previous AC and battery policies restored"
 
@@ -162,16 +113,8 @@ class Controller:
         return self.awake_off() if self.saved() else self.awake_on()
 
     def status(self):
-        snapshot = self.saved()
-        current = {key: self.get(key) for key in KEYS}
-        if snapshot is None:
-            state = "OFF"
-        elif all(current[key] == "'nothing'" for key in KEYS):
-            state = "ON"
-        else:
-            state = "INCONSISTENT"
-        return {"state": state, "awake": state == "ON",
-                "battery": current[KEYS[0]], "ac": current[KEYS[1]]}
+        return {"awake": self.saved() is not None,
+                "battery": self.get(KEYS[0]), "ac": self.get(KEYS[1])}
 
     def lock(self):
         self.run(["loginctl", "lock-session"])
@@ -195,6 +138,10 @@ class Controller:
         return ("GNOME ScreenSaver activated; physical LCD blanking, input wake and "
                 "SSH/Cora availability remain unverified")
 
+    def display_wake(self):
+        self.screen_set_active(False)
+        return "Request to restore display sent (screen remains locked if required)"
+
     def action(self, name):
         if name == "awake-on":
             return self.awake_on()
@@ -204,6 +151,8 @@ class Controller:
             return self.awake_toggle()
         if name == "lock":
             return self.lock()
+        if name == "display-wake":
+            return self.display_wake()
         if name == "suspend":
             self.run(["systemctl", "suspend"])
             return "System suspend requested"
@@ -222,7 +171,7 @@ class Controller:
 def main(argv=None):
     parser = argparse.ArgumentParser(description="GNOME power and session controller")
     parser.add_argument("action", choices=("status", "awake-on", "awake-off", "awake-toggle",
-                        "lock", "display-sleep", "suspend", "logout",
+                        "lock", "display-sleep", "display-wake", "suspend", "logout",
                         "reboot", "shutdown"))
     parser.add_argument("--delay", type=float, default=0.0)
     args = parser.parse_args(argv)
@@ -230,12 +179,10 @@ def main(argv=None):
     try:
         if args.action == "status":
             print(json.dumps(ctl.status(), ensure_ascii=False))
+        elif args.action == "display-sleep":
+            print(ctl.display_sleep(delay=max(0.0, min(args.delay, 5.0))))
         else:
-            with ctl.state_lock():
-                if args.action == "display-sleep":
-                    print(ctl.display_sleep(delay=max(0.0, min(args.delay, 5.0))))
-                else:
-                    print(ctl.action(args.action))
+            print(ctl.action(args.action))
     except PowerError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         if args.action == "display-sleep":

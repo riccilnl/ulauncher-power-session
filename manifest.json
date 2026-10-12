@@ -1,7 +1,7 @@
 {
   "required_api_version": "^2.0.0",
   "name": "GNOME Power & Session",
-  "description": "Awake toggle, experimental Sleep Display, lock, suspend, log out, restart and shut down on GNOME",
+  "description": "Seven independent power and session commands searchable without a prefix",
   "developer_name": "Ricci",
   "icon": "images/icon.svg",
   "options": {
@@ -9,18 +9,53 @@
   },
   "preferences": [
     {
-      "id": "gnome_power_keyword",
-      "type": "keyword",
-      "name": "Power & Session",
-      "description": "GNOME power and session actions",
-      "default_value": "power"
-    },
-    {
       "id": "awake_keyword",
       "type": "keyword",
-      "name": "Awake shortcut",
-      "description": "Quick access to the Awake ON/OFF toggle",
+      "name": "Awake",
+      "description": "Prevent idle suspend on AC and battery (toggle)",
       "default_value": "awake"
+    },
+    {
+      "id": "sleep_keyword",
+      "type": "keyword",
+      "name": "Sleep Display",
+      "description": "Experimental screen blanking (not system suspend)",
+      "default_value": "sleep"
+    },
+    {
+      "id": "lock_keyword",
+      "type": "keyword",
+      "name": "Lock",
+      "description": "Lock GNOME session",
+      "default_value": "lock"
+    },
+    {
+      "id": "suspend_keyword",
+      "type": "keyword",
+      "name": "Suspend",
+      "description": "Suspend the computer",
+      "default_value": "suspend"
+    },
+    {
+      "id": "logout_keyword",
+      "type": "keyword",
+      "name": "Log Out",
+      "description": "Log out of GNOME session",
+      "default_value": "logout"
+    },
+    {
+      "id": "restart_keyword",
+      "type": "keyword",
+      "name": "Restart",
+      "description": "Reboot the computer",
+      "default_value": "restart"
+    },
+    {
+      "id": "shutdown_keyword",
+      "type": "keyword",
+      "name": "Shut Down",
+      "description": "Power off the computer",
+      "default_value": "shutdown"
     }
   ]
 }

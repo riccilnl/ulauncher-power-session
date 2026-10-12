@@ -1,80 +1,54 @@
-# GNOME Power & Session — Ulauncher 5
+# GNOME Power & Session (Ulauncher 5)
 
-GNOME Wayland power and session extension for **Ulauncher 5.15.15 / Extension API 2.0.0**.
+Standalone GNOME Wayland power/session commands. **No `power` prefix**, no installer shell script. Target Fedora 44, Ulauncher 5.15.15, Extension API 2.0.0.
 
-## Install or update in Ulauncher
+## Install or update
 
-Install using **Preferences → Extensions → Add Extension** and the GitHub URL:
+Ulauncher → Preferences → Extensions → Add Extension
 
 https://github.com/riccilnl/ulauncher-power-session
 
-This extension is **not** installed using an `install.sh` script. If you previously installed a manually copied version, remove that version to avoid confusion.
+For an existing GitHub installation use **Update** to load a new commit, or remove/re-add the URL if the update option is unavailable.
 
-**Keywords:**
-- `power ` (with a trailing space) — full menu, with **Awake as the first entry**.
-- `awake ` (with a trailing space) — show **only Awake ON/OFF**.
+## Top-level commands
 
-Existing GitHub installations should use the extension **Update** operation to receive newer commits; if no update control is available, remove the extension and add the same GitHub URL again. Ulauncher 5 does not automatically pick up updated GitHub code as soon as it is pushed.
+All seven commands appear as independently searchable **Ulauncher keyword items**, with one shared centered yellow ⚡ icon. Type the desired command, select its keyword item, then select the operation. The first selection activates the extension's command result; that is a limitation of the Ulauncher 5 keyword API. No `power` prefix or combined command menu is required.
 
-## Commands
+| Search in the normal Ulauncher search bar | Command | Description |
+| --- | --- | --- |
+| `awake` | Awake | Toggle AC+battery **idle** auto-suspend; status says ON/OFF |
+| `sleep` / `sleep display` | Sleep Display | Experimental: enables Awake, locks GNOME, requests screensaver activation |
+| `lock` | Lock | Lock session |
+| `suspend` | Suspend | Suspend machine (disconnects SSH/Cora) |
+| `logout` | Log Out | Log out of GNOME |
+| `restart` | Restart | Restart machine |
+| `shutdown` | Shut Down | Shut down machine |
 
-| Menu command | Actual behavior |
-| --- | --- |
-| Awake OFF → ON | Disables **idle-triggered** auto-suspend for both battery and AC power; screen is still allowed to blank |
-| Awake ON → OFF | Restores both original idle-suspend settings |
-| Sleep Display (experimental) | Enables Awake, locks the session, requests GNOME ScreenSaver activation |
-| Lock | Locks current session, without forcing system suspend |
-| Suspend | Suspends the entire computer (disconnects SSH/Cora), confirmation required |
-| Log out | Logs out of GNOME, confirmation required |
-| Restart | Reboots the computer, confirmation required |
-| Shut down | Powers off the computer, confirmation required |
+After the selected keyword, Ulauncher 5 requires a space to activate extension results (it inserts the space for you when you select a keyword search result). The last five commands include an extra confirmation for dangerous actions; Sleep Display also requires confirmation while unverified.
 
-**Wake Display has been removed.** Waking a properly implemented screen-off state should happen from keyboard/mouse activity, not by activating Ulauncher while the screen is off.
+If your launcher already has another `sleep`, `lock`, etc. keyword, adjust this extension's keyword under Preferences → Extensions. These are regular user-configurable keywords.
 
-**Awake ON is not a system-wide "never sleep" inhibitor.** It changes GNOME's two idle-suspend policies. Closing the laptop lid still follows the system's lid policy. Explicit user suspension, shutdown, battery exhaustion, thermal protection or other independent sleep policies are not overridden.
+## What Awake actually means
 
-### Safe state management
+Awake ON disables GNOME **idle-triggered auto-suspend** both on AC and battery. The screen can still dim/blank normally. A normal laptop-lid close still follows its existing policy. It does not prevent deliberate Suspend, shutdown, battery depletion, or other unrelated mechanisms. Awake OFF restores saved AC and battery values with rollback and conflict checks.
 
-- Saves both original GSettings values before writing either.
-- Reads both real GSettings values to report ON/OFF/INCONSISTENT, rather than trusting the mere existence of a backup.
-- Does not overwrite unexpected manual changes, and rolls back both settings after a partial failure.
-- Serializes changes across plugin processes using a per-user state lock.
-- Tries to stop the historical `awake-inhibit.service` that prevented idle screen blanking.
-- Preserves older backup files `ulauncher-awake-battery` and `ulauncher-awake-ac` without deleting them.
-- State file: `~/.local/state/ulauncher-power-session/ulauncher-power-session.json`.
+## Sleep Display is experimental
 
-## Critical: Sleep Display is NOT yet equivalent to macOS
+GNOME's `org.gnome.ScreenSaver.SetActive(true)` is **not** verified to turn off the physical LCD immediately like macOS `pmset displaysleepnow`. GNOME may merely lock/dim the desktop. Do not leave this function running unattended until real acceptance:
+1. Physical LCD goes dark immediately.
+2. Keyboard/mouse/touchpad restore display.
+3. Cora and SSH stay online with battery and AC for at least 15 minutes.
+4. Lid-close still suspends and resumes correctly.
 
-GNOME Wayland's `org.gnome.ScreenSaver.SetActive(true)` can activate lock/blank behavior. **It does not guarantee immediate physical LCD backlight-off**, unlike macOS `pmset displaysleepnow`. Do not claim it has passed hardware tests.
+The plugin does not force `Mutter DisplayConfig.PowerSaveMode=3`, because that preceded unresponsive display behavior on the Dell.
 
-The extension intentionally does not write Mutter `PowerSaveMode=3`, previously associated with an inability to wake the Dell screen. Sleep Display currently **requires a second confirmation**; do not use it unattended until the following acceptance checks pass.
-
-1. Screen actually turns off (not only lock UI).
-2. Keyboard and touchpad wake the screen.
-3. SSH and Cora remain online at least 15 minutes, tested separately on AC and battery.
-4. Lid-close sleep still works; resume succeeds.
-
-## Troubleshooting
-
-If Awake is missing, verify you have updated/reinstalled the GitHub extension. Typing `awake ` should return just the toggle; `power ` should put it first.
-
-If the display appears off but SSH or Cora disconnects, inspect system suspend logs. The screen and system suspend mechanisms are distinct.
-
-To view state from **within your own graphical GNOME session**:
-
-```sh
-python3 powerctl.py status
-python3 powerctl.py awake-on
-python3 powerctl.py awake-off
-```
-
-## Developer verification
+## Development verification
 
 ```sh
 python3 -m py_compile main.py powerctl.py tests/*.py
 python3 -m unittest discover -s tests -v
 ```
 
-Unit tests use simulated GSettings, screen and power command execution. On Dell Fedora, Ulauncher 5.15.15's actual import/API was used to validate menu generation. These tests do **not** perform a live suspend/shutdown/display-off.
+Power/suspend/shutdown commands are mocked in unit tests. The manifest and menu are checked with Ulauncher 5's real Python API. Tests **do not** suspend or shut down the device.
 
-See [DESIGN.md](DESIGN.md) for the architecture and field acceptance contract.
+For technical limitations, module contracts and acceptance checklist, see [DESIGN.md](DESIGN.md).

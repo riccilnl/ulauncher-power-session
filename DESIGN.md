@@ -1,48 +1,40 @@
-# GNOME Power & Session — architecture, decisions and audit
+# GNOME Power & Session — architecture and acceptance
 
-## Baseline (2026-10-12)
+**Source of truth:** `riccilnl/ulauncher-power-session` `main`; Fedora 44 / GNOME Wayland / Ulauncher 5.15.15, API v2.
 
-Target: Dell Fedora 44, GNOME Wayland, Ulauncher 5.15.15, Extension API 2.0.0. Source of truth: `riccilnl/ulauncher-power-session` on GitHub `main`.
+## UI decision: no parent command
 
-Ulauncher 5 GitHub installer requires `versions.json`, `manifest.json`, and `main.py`. The keyword handler is `KeywordQueryEvent`, and actions return `ExtensionCustomAction` from the v2 API.
+Ulauncher 5's `ExtensionSearchMode` returns each `keyword` preference as a standalone, globally searchable result, and `ExtensionKeywordResultItem.on_enter` sets the user query to `<keyword> `. Only **then** is `KeywordQueryEvent` fired. A normal API v2 extension cannot directly inject its own executable result items into the initial blank launcher result list. We therefore provide **seven keyword preferences**, one for each requested command, rather than `power <subcommand>`.
 
-## Modules and contracts
+| Preference | Keyword | Controller action |
+| --- | --- | --- |
+| `awake_keyword` | awake | awake-toggle |
+| `sleep_keyword` | sleep | display-sleep |
+| `lock_keyword` | lock | lock |
+| `suspend_keyword` | suspend | suspend |
+| `logout_keyword` | logout | logout |
+| `restart_keyword` | restart | reboot |
+| `shutdown_keyword` | shutdown | shutdown |
 
-| Component | Public contract |
-| --- | --- |
-| `manifest.json` | Two independent keywords, `power` (all) and `awake` (only Awake) |
-| `main.py` | Awake first in power menu; state visible as ON, OFF, INCONSISTENT or UNKNOWN; no Wake Display |
-| `powerctl.py:Controller` | Fixed subprocess argv, explicit errors, immutable original settings backup |
-| Awake transitions | AC + battery type set to `nothing`, with comparison guards, exclusive state lock, and rollback |
-| Screen action | Lock, request ScreenSaver SetActive; **not** a proven physical backlight-off control |
-| Power actions | Suspend, logout, reboot and poweroff require a second UI confirmation |
-| `tests/` | Mocked power-setting transitions and actual Ulauncher 5 menu rendering API import |
+All menu keyword icons are the same `images/icon.svg`: a centered, solid yellow bolt on a square navy background, with no incomplete/crooked circular power-glyph arcs. No Wake Display or parent `power` command.
 
-## Audit: fixes
+## Module contracts
 
-1. **Awake undiscoverable:** An Awake row was present in source but the only launcher keyword was `power`. Installed UI state could not be read directly across the node's authorization boundary. Fixed by putting Awake first and offering a dedicated `awake` keyword; covered by 7 UI tests.
-2. **Misleading Wake Display:** Removed. Recovery should occur from mouse/keyboard, and the feature was not practical while display was dark.
-3. **Fake ON indicator:** Menu previously displayed ON solely when a backup file existed. Corrected by reading both GSettings values and comparing against the saved state.
-4. **Partial changes:** Awake writes are now rolled back if one of the AC/battery settings fails. Backup remains if rollback itself fails.
-5. **Potential double-click races:** File lock added for CLI transitions.
-6. **Unsafe acceptance claim:** Screen display command remains experimental, with explicit confirmation and outstanding field tests. No code claim that ScreenSaver necessarily turns the physical panel off.
-7. **Legacy transient inhibitor:** Best-effort stop of historical `awake-inhibit.service`; does not create a new sleep inhibitor that would suppress lid-close sleep.
-8. **Delivery:** GitHub URL only, not manual install scripts; tests executed on Dell with Ulauncher 5.15.15 APIs.
+- `manifest.json`: v2 protocol, 7 user-modifiable keyword preferences; icon same for all.
+- `main.py`: route `get_keyword()` by preferences to exactly 1 action; Awake state from controller, not marker file; destructive actions confirmed; do not silently report success.
+- `powerctl.py`: GNOME GSettings state and original snapshot, AC/battery rollback, flock to serialize, existing lid policy untouched.
+- `tests/`: verify all seven keywords and actual Ulauncher v5 `Query` parsing; simulated control only.
 
-## Quality gate
+## Known limitations & acceptance
 
-- [x] Real Ulauncher 5.15.15 v2 extension API read and import verified.
-- [x] `versions.json` and `manifest.json` supported by Ulauncher 5 downloader.
-- [x] 20 tests pass in the Dell test sandbox; tests never call real suspend/reboot/shutdown.
-- [ ] Actual GitHub-installed extension status read from user's graphical session.
-- [ ] `power`/ `awake` keyword interaction accepted by the user.
-- [ ] Immediate physical panel-off on Dell.
-- [ ] Keyboard/touchpad wake; no unresponsive black display.
-- [ ] SSH and Cora continuous connectivity on AC and battery.
-- [ ] Lid-close suspend / lid-open resume.
+- [x] Independent global keyword search results instead of `power` subcommands.
+- [x] All 7 names specified, one icon used throughout.
+- [x] Sleep Display and destructive actions require confirmation.
+- [ ] User graphical-session running status / actual search interaction (launcher profile cannot be read via isolated NodeDeck execution).
+- [ ] Sleep Display **physical LCD off** immediately.
+- [ ] Display wakes reliably; no black frozen display.
+- [ ] SSH/Cora online throughout on battery and AC.
+- [ ] Lid close still suspends, lid open resumes.
+- [ ] User confirms the new ⚡ icon appears upright/centered in Ulauncher 5.
 
-Do **not** declare Mac-equivalent Sleep Display complete until the outstanding tests pass.
-
-## Future verification constraints
-
-Avoid `org.gnome.Mutter.DisplayConfig PowerSaveMode=3` as a shortcut: it previously coincided with an unresponsive display. Do not substitute an `idle` inhibitor that prevents normal screen blanking, or a `sleep` inhibitor that overrides the user's lid-close behavior.
+**Never claim macOS-equivalent display-off until the hardware acceptance items pass.**
