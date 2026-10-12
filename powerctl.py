@@ -120,7 +120,8 @@ class Controller:
             restore_errors = []
             for key in reversed(changed):
                 try:
-                    self.set(key, before[key])
+                    if self.get(key) != before[key]:
+                        self.set(key, before[key])
                 except PowerError as restore_exc:
                     restore_errors.append(str(restore_exc))
             if not restore_errors and existing is None:
@@ -148,7 +149,8 @@ class Controller:
             restore_errors = []
             for key in reversed(changed):
                 try:
-                    self.set(key, before[key])
+                    if self.get(key) != before[key]:
+                        self.set(key, before[key])
                 except PowerError as restore_exc:
                     restore_errors.append(str(restore_exc))
             detail = "; rollback failed: " + "; ".join(restore_errors) if restore_errors else "; rolled back"
