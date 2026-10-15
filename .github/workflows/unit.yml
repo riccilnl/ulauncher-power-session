@@ -1,7 +1,7 @@
 name: Python unit tests
 on:
   push:
-    branches: [main, feat/single-enter-native-launchers]
+    branches: [main, refactor/native-keywords-no-desktop]
   pull_request:
 jobs:
   python:
