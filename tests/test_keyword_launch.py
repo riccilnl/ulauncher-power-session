@@ -7,7 +7,6 @@ import os
 from pathlib import Path
 import subprocess
 import sys
-import tempfile
 import types
 import unittest
 from unittest.mock import Mock, patch
@@ -45,8 +44,7 @@ except ImportError:
          HideWindowAction=StubHideWindowAction)
 
 import main
-from desktop_shortcuts import MARKER, PREFIX, LEGACY_ACTIONS, remove_launchers
-from desktop_action import DIRECT, DANGEROUS, dispatch
+from action import DIRECT, DANGEROUS, dispatch
 
 class FakeEvent:
     def __init__(self, keyword, argument=None):
@@ -80,7 +78,7 @@ class KeywordTests(unittest.TestCase):
         self.assertIsInstance(reply, main.HideWindowAction)
         self.assertEqual(spawn.call_count, 1)
         self.assertEqual(spawn.call_args.args[0][-1], "sleep")
-        self.assertEqual(spawn.call_args.args[0][-2], str(ROOT / "desktop_action.py"))
+        self.assertEqual(spawn.call_args.args[0][-2], str(ROOT / "action.py"))
 
     def test_double_event_does_not_toggle_awake_twice(self):
         now = [10.0]
@@ -103,28 +101,15 @@ class KeywordTests(unittest.TestCase):
         self.assertIsNone(main.action_for_keyword("awake", changed))
         self.assertEqual(main.action_for_keyword("keep", changed), "awake")
 
-    def test_plugin_init_performs_legacy_cleanup_without_creating_apps(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            with patch("main.remove_launchers", return_value=[Path(tmp) / "old.desktop"]) as cleanup:
-                with patch.dict(os.environ, {"ULAUNCHER_WS_API": "ws://127.0.0.1:5054/fake"}):
-                    main.PowerExtension()
-                cleanup.assert_called_once()
-
-    def test_legacy_cleanup_removes_only_our_owned_entries(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            home = Path(tmp)
-            for slug in LEGACY_ACTIONS:
-                (home / f"{PREFIX}-{slug}.desktop").write_text(
-                    "[Desktop Entry]\n" + MARKER + "\n", encoding="utf-8"
-                )
-            (home / f"{PREFIX}-sleep.desktop").unlink()
-            (home / f"{PREFIX}-sleep.desktop").symlink_to(home / f"{PREFIX}-awake.desktop")
-            other = home / "user.desktop"
-            other.write_text("keep")
-            self.assertEqual(len(remove_launchers(home)), 6)
-            self.assertTrue((home / f"{PREFIX}-sleep.desktop").is_symlink())
-            self.assertEqual(other.read_text(), "keep")
-            self.assertEqual(remove_launchers(home), [])
+    def test_clean_plugin_does_not_manage_application_entries(self):
+        source = (ROOT / "main.py").read_text(encoding="utf-8")
+        self.assertNotIn("desktop_shortcuts", source)
+        self.assertNotIn("remove_launchers", source)
+        self.assertNotIn("ensure_launchers", source)
+        self.assertNotIn("~/.local/share/applications", source)
+        self.assertEqual(len(self.manifest["preferences"]), 7)
+        self.assertFalse((ROOT / "desktop_shortcuts.py").exists())
+        self.assertFalse((ROOT / "desktop_action.py").exists())
 
     def test_missing_gui_confirm_fails_closed(self):
         run = Mock(side_effect=OSError("no Zenity"))

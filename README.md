@@ -8,7 +8,7 @@ Ulauncher → Preferences → Extensions → Add/Update:
 
 https://github.com/riccilnl/ulauncher-power-session
 
-The existing GitHub-installed extension is the only component to update. Upon startup, the new version **removes only its own seven legacy `.desktop` application entries**. It does not create any new ones. These entries may disappear from Ulauncher's old search index after its desktop-file watcher refreshes.
+This release is a **pure Ulauncher extension**. It does not create, delete, or modify GNOME application launchers, `.desktop` files, or Ulauncher shortcuts. You have already removed old entries; upgrading this version will leave the application list unchanged.
 
 ## How the one-Enter UI works
 
@@ -36,22 +36,10 @@ All seven entries use the same centered yellow ⚡. Keywords may be customized i
 
 Dangerous session actions only run after explicit confirmation. A missing Zenity dialog fails closed.
 
-## Legacy cleanup and rollback
-
-There are no `.desktop` launchers in the current architecture. Prior versions generated `~/.local/share/applications/riccilnl-ulauncher-power-*.desktop`. The updated extension removes only these namespaced files **when they have the extension ownership marker**. It skips symlinks and unrelated entries. No GNOME power settings are modified by migration.
-
-You can check legacy entries with:
-
-```sh
-python3 ~/.local/share/ulauncher/extensions/com.github.riccilnl.ulauncher-power-session/desktop_shortcuts.py list
-```
-
-The standalone `desktop_shortcuts.py remove` command also cleans old entries but **can no longer create them**.
-
 ## Tests and outstanding real-machine checks
 
 ```sh
-python3 -m py_compile main.py desktop_action.py desktop_shortcuts.py powerctl.py tests/*.py
+python3 -m py_compile main.py action.py powerctl.py tests/*.py
 python3 -m unittest discover -s tests -v
 ```
 

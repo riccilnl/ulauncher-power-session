@@ -1,7 +1,7 @@
 name: Python unit tests
 on:
   push:
-    branches: [main, refactor/native-keywords-no-desktop]
+    branches: [main, refactor/clean-keyword-plugin]
   pull_request:
 jobs:
   python:
@@ -12,6 +12,6 @@ jobs:
         with:
           python-version: '3.12'
       - name: Check syntax
-        run: python -m py_compile main.py desktop_action.py desktop_shortcuts.py powerctl.py tests/*.py
+        run: python -m py_compile main.py action.py powerctl.py tests/*.py
       - name: Run mocked tests (no power actions)
         run: python -m unittest discover -s tests -v

@@ -17,10 +17,8 @@ from ulauncher.api.client.EventListener import EventListener
 from ulauncher.api.shared.event import KeywordQueryEvent
 from ulauncher.api.shared.action.HideWindowAction import HideWindowAction
 
-from desktop_shortcuts import remove_launchers
-
 BASE = Path(__file__).resolve().parent
-RUNNER = BASE / "desktop_action.py"
+RUNNER = BASE / "action.py"
 # Keep in sync with manifest.json. IDs are stable when users customize keywords.
 COMMANDS = {
     "awake_keyword": ("awake", "awake"),
@@ -43,7 +41,7 @@ def action_for_keyword(keyword, preferences):
 
 
 def launch_action(action, spawner=subprocess.Popen):
-    """Detached command execution; desktop_action handles user-visible errors."""
+    """Detached command execution; action.py handles user-visible errors."""
     return spawner(
         [sys.executable, str(RUNNER), action],
         stdin=subprocess.DEVNULL,
@@ -85,13 +83,7 @@ class PowerExtension(Extension):
     def __init__(self):
         super().__init__()
         self.subscribe(KeywordQueryEvent, ImmediateKeywords())
-        # One-time migration: delete ONLY the seven entries written by the
-        # previous release, after verifying our ownership marker.
-        try:
-            removed = remove_launchers()
-            self.logger.info("Removed %d legacy GNOME .desktop launchers", len(removed))
-        except (OSError, RuntimeError, ValueError):
-            self.logger.exception("Legacy desktop entry cleanup failed")
+
 
 
 if __name__ == "__main__":

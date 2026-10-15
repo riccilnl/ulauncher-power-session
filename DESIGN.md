@@ -16,25 +16,24 @@ See [friday/ulauncher-gnome-settings](https://github.com/friday/ulauncher-gnome-
 | Module | Contract |
 | --- | --- |
 | `manifest.json` | Seven Ulauncher v2 keyword preferences with display names and ⚡ icon |
-| `main.py` | One event → detached `desktop_action.py` → `HideWindowAction` (no submenu) |
-| `desktop_action.py` | Awake/Lock/Sleep direct, disruptive commands via one Zenity confirmation |
+| `main.py` | One event → detached `action.py` → `HideWindowAction` (no submenu) |
+| `action.py` | Awake/Lock/Sleep direct, disruptive commands via one Zenity confirmation |
 | `powerctl.py` | Existing AC+battery GSettings snapshot/restore with flock and rollback |
-| `desktop_shortcuts.py` | **Removal-only** migration for seven old app entries, ownership marker required |
-| `tests/` | First-Enter dispatch, duplicate-event debounce, argument guards, migration, power tests |
+| `tests/` | First-Enter dispatch, duplicate-event debounce, argument guards, absence of app-entry mutation, power tests |
 
 ## Explicit trade-offs
 
 - The keyword pattern is a **community workaround**, not an official first-Enter execution hook. The query may briefly display `sleep ` before it closes. Typing that exact keyword with a space (even without Enter) will also invoke it. Avoid nonempty argument execution; disruptive operations show Zenity confirmation.
 - Keyword display text does not dynamically show Awake ON/OFF, but the operation posts a notification.
 - Suppress repeated identical action events within 1.5 seconds to prevent double toggle.
-- No mutation of Ulauncher's `shortcuts.json`, no `.desktop` files created or modified except cleanup of previously generated owned launchers.
+- No mutation of Ulauncher's `shortcuts.json`, any GNOME `.desktop` files or any application-menu entries. Previous cleanup and migration code has been removed.
 
 ## Acceptance
 
 - [x] Upstream Ulauncher v5 code supports the SetUserQueryAction → KeywordQueryEvent → HideWindowAction sequence.
 - [x] GitHub repository source uses seven keyword preferences, no app-generating startup.
 - [ ] CI mocked tests pass and Fedora Ulauncher 5 API integration tested.
-- [ ] Actual existing GNOME app icons removed on next plugin update/start.
+- [x] No application-menu cleanup or mutation code in the plugin. Existing user cleanup remains untouched.
 - [ ] Actual Ulauncher command first Enter on Dell Fedora (Sleep Display and Awake).
 - [ ] Display-off, wake, SSH/Cora and lid-close behaviors verified in both AC/battery conditions.
 

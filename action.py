@@ -1,4 +1,4 @@
-"""Execute a native Ulauncher app-search result on the first Enter."""
+"""Run one Ulauncher keyword command without a submenu."""
 from __future__ import annotations
 import argparse
 from pathlib import Path
