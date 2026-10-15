@@ -1,54 +1,52 @@
-# GNOME Power & Session (Ulauncher 5)
+# GNOME Power & Session · Single Enter (Ulauncher 5)
 
-Standalone GNOME Wayland power/session commands. **No `power` prefix**, no installer shell script. Target Fedora 44, Ulauncher 5.15.15, Extension API 2.0.0.
+The GitHub extension provides seven native desktop search results. **Type `sleep`, press Enter once, done.** No keyword expansion, no second Ulauncher menu, no Sleep Display confirmation.
 
-## Install or update
+## Install / update
 
-Ulauncher → Preferences → Extensions → Add Extension
+Install or update the public Ulauncher extension:
 
 https://github.com/riccilnl/ulauncher-power-session
 
-For an existing GitHub installation use **Update** to load a new commit, or remove/re-add the URL if the update option is unavailable.
+On startup, the extension automatically writes seven identifiable `.desktop` launchers to `~/.local/share/applications` using your XDG data directory. Ulauncher 5 watches this directory and indexes them as **native apps**, so the first Enter executes the selected app. After an update, allow a few seconds for its app watcher to refresh. These entries also appear in GNOME's application search.
 
-## Top-level commands
+The Ulauncher Extension API v2 cannot trigger a direct command from the first Enter of a keyword item. This release **removes all extension keywords**, using native `LaunchAppAction` instead. Do not keep adding the old `power` keyword.
 
-All seven commands appear as independently searchable **Ulauncher keyword items**, with one shared centered yellow ⚡ icon. Type the desired command, select its keyword item, then select the operation. The first selection activates the extension's command result; that is a limitation of the Ulauncher 5 keyword API. No `power` prefix or combined command menu is required.
-
-| Search in the normal Ulauncher search bar | Command | Description |
+| Search term | First Enter | Extra confirmation |
 | --- | --- | --- |
-| `awake` | Awake | Toggle AC+battery **idle** auto-suspend; status says ON/OFF |
-| `sleep` / `sleep display` | Sleep Display | Experimental: enables Awake, locks GNOME, requests screensaver activation |
-| `lock` | Lock | Lock session |
-| `suspend` | Suspend | Suspend machine (disconnects SSH/Cora) |
-| `logout` | Log Out | Log out of GNOME |
-| `restart` | Restart | Restart machine |
-| `shutdown` | Shut Down | Shut down machine |
+| `sleep` (Sleep Display) | Request blank display, keep host running | None |
+| `awake` | Toggle GNOME idle-suspend prevention | None |
+| `lock` | Lock GNOME session | None |
+| `suspend` | Suspend whole computer | GNOME/Zenity confirmation |
+| `logout` | End GNOME login session | GNOME/Zenity confirmation |
+| `restart` | Reboot | GNOME/Zenity confirmation |
+| `shutdown` | Power off | GNOME/Zenity confirmation |
 
-After the selected keyword, Ulauncher 5 requires a space to activate extension results (it inserts the space for you when you select a keyword search result). The last five commands include an extra confirmation for dangerous actions; Sleep Display also requires confirmation while unverified.
+The one-Enter direct commands use the same ⚡ icon. Shutdown/restart/suspend/logout retain **one native confirmation dialog** outside Ulauncher to prevent accidental session loss. If Zenity is unavailable, these commands fail closed, without performing the action.
 
-If your launcher already has another `sleep`, `lock`, etc. keyword, adjust this extension's keyword under Preferences → Extensions. These are regular user-configurable keywords.
+### Awake versus Sleep Display
 
-## What Awake actually means
+`awake` disables **automatic idle suspend** for both AC and battery. The screen may still blank/dim; the system and Cora remain running. Closing the lid follows your existing policy.
 
-Awake ON disables GNOME **idle-triggered auto-suspend** both on AC and battery. The screen can still dim/blank normally. A normal laptop-lid close still follows its existing policy. It does not prevent deliberate Suspend, shutdown, battery depletion, or other unrelated mechanisms. Awake OFF restores saved AC and battery values with rollback and conflict checks.
+`sleep` invokes the existing controller: Awake ON, lock GNOME, then ScreenSaver activation after a 0.8-second delay to let Ulauncher close. It has not passed the complete **physical LCD off and keyboard/mouse wake** acceptance gate. Do not use unattended until that test passes.
 
-## Sleep Display is experimental
+### Troubleshooting / uninstall
 
-GNOME's `org.gnome.ScreenSaver.SetActive(true)` is **not** verified to turn off the physical LCD immediately like macOS `pmset displaysleepnow`. GNOME may merely lock/dim the desktop. Do not leave this function running unattended until real acceptance:
-1. Physical LCD goes dark immediately.
-2. Keyboard/mouse/touchpad restore display.
-3. Cora and SSH stay online with battery and AC for at least 15 minutes.
-4. Lid-close still suspends and resumes correctly.
+The extension should be Running in Preferences → Extensions. If native results do not appear after an update, Ulauncher may not yet have indexed the newly created files. Inspect `~/.local/share/applications/riccilnl-ulauncher-power-*.desktop`. No system privileges are required.
 
-The plugin does not force `Mutter DisplayConfig.PowerSaveMode=3`, because that preceded unresponsive display behavior on the Dell.
-
-## Development verification
+Before removing this extension, clean up the desktop entries from the installed extension directory:
 
 ```sh
-python3 -m py_compile main.py powerctl.py tests/*.py
+python3 ~/.local/share/ulauncher/extensions/com.github.riccilnl.ulauncher-power-session/desktop_shortcuts.py remove
+```
+
+Only files carrying this extension's ownership marker are removed. The original GNOME power settings and Awake state are never deleted by shortcut cleanup.
+
+### Tests
+
+```sh
+python3 -m py_compile main.py desktop_shortcuts.py desktop_action.py powerctl.py
 python3 -m unittest discover -s tests -v
 ```
 
-Power/suspend/shutdown commands are mocked in unit tests. The manifest and menu are checked with Ulauncher 5's real Python API. Tests **do not** suspend or shut down the device.
-
-For technical limitations, module contracts and acceptance checklist, see [DESIGN.md](DESIGN.md).
+Unit tests simulate execution and **never suspend, log out, reboot, shut down or blank the real display**. Actual UI and physical monitor behavior must be accepted on your Dell Fedora laptop.
