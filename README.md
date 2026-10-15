@@ -1,52 +1,58 @@
-# GNOME Power & Session · Single Enter (Ulauncher 5)
+# GNOME Power & Session — Ulauncher 5
 
-The GitHub extension provides seven native desktop search results. **Type `sleep`, press Enter once, done.** No keyword expansion, no second Ulauncher menu, no Sleep Display confirmation.
+Seven direct Ulauncher commands using the community-tested **app-like keyword pattern** from [friday/ulauncher-gnome-settings](https://github.com/friday/ulauncher-gnome-settings). No `power` parent menu and **no GNOME application icons**.
 
-## Install / update
+## Install and update
 
-Install or update the public Ulauncher extension:
+Ulauncher → Preferences → Extensions → Add/Update:
 
 https://github.com/riccilnl/ulauncher-power-session
 
-On startup, the extension automatically writes seven identifiable `.desktop` launchers to `~/.local/share/applications` using your XDG data directory. Ulauncher 5 watches this directory and indexes them as **native apps**, so the first Enter executes the selected app. After an update, allow a few seconds for its app watcher to refresh. These entries also appear in GNOME's application search.
+The existing GitHub-installed extension is the only component to update. Upon startup, the new version **removes only its own seven legacy `.desktop` application entries**. It does not create any new ones. These entries may disappear from Ulauncher's old search index after its desktop-file watcher refreshes.
 
-The Ulauncher Extension API v2 cannot trigger a direct command from the first Enter of a keyword item. This release **removes all extension keywords**, using native `LaunchAppAction` instead. Do not keep adding the old `power` keyword.
+## How the one-Enter UI works
 
-| Search term | First Enter | Extra confirmation |
+For example: type `sleep`, find **Sleep Display** (⚡), press **Enter once**. Ulauncher briefly inserts the query `sleep `, which fires the extension's `KeywordQueryEvent`. The extension launches the action directly and closes Ulauncher. There is no second Ulauncher result screen.
+
+**Important:** The same action also fires if you explicitly type a matching keyword followed by a space; this is a documented limitation of the app-like keyword workaround. Do not use these words to type unrelated searches with a trailing space. Extra nonempty arguments are ignored.
+
+| Search keyword | Action after one Enter | Confirmation |
 | --- | --- | --- |
-| `sleep` (Sleep Display) | Request blank display, keep host running | None |
-| `awake` | Toggle GNOME idle-suspend prevention | None |
-| `lock` | Lock GNOME session | None |
-| `suspend` | Suspend whole computer | GNOME/Zenity confirmation |
-| `logout` | End GNOME login session | GNOME/Zenity confirmation |
-| `restart` | Reboot | GNOME/Zenity confirmation |
-| `shutdown` | Power off | GNOME/Zenity confirmation |
+| `awake` | Toggle GNOME idle-suspend prevention, AC and battery | None; state notification |
+| `sleep` | Request display blanking while preserving host networking | None |
+| `lock` | Lock GNOME desktop | None |
+| `suspend` | Suspend the computer, disconnecting Cora/SSH | One GNOME Zenity confirmation |
+| `logout` | Log out of GNOME | One Zenity confirmation |
+| `restart` | Reboot | One Zenity confirmation |
+| `shutdown` | Shut down | One Zenity confirmation |
 
-The one-Enter direct commands use the same ⚡ icon. Shutdown/restart/suspend/logout retain **one native confirmation dialog** outside Ulauncher to prevent accidental session loss. If Zenity is unavailable, these commands fail closed, without performing the action.
+All seven entries use the same centered yellow ⚡. Keywords may be customized in Ulauncher's extension preferences. Once selected, the direct action runs in a detached process; duplicate query notifications are suppressed briefly to avoid twice toggling Awake.
 
-### Awake versus Sleep Display
+## Power and display contract
 
-`awake` disables **automatic idle suspend** for both AC and battery. The screen may still blank/dim; the system and Cora remain running. Closing the lid follows your existing policy.
+`Awake ON` sets both GNOME `sleep-inactive-ac-type` and `sleep-inactive-battery-type` to `nothing`, retaining their originals for restoration when toggled OFF. **Awake does not keep the screen lit.** Lid closing remains governed by GNOME/system policy.
 
-`sleep` invokes the existing controller: Awake ON, lock GNOME, then ScreenSaver activation after a 0.8-second delay to let Ulauncher close. It has not passed the complete **physical LCD off and keyboard/mouse wake** acceptance gate. Do not use unattended until that test passes.
+`Sleep Display` invokes the existing conservative method: enable Awake, lock the screen, request `org.gnome.ScreenSaver.SetActive(true)`. This **may lock/blank without truly powering down the physical LCD**. Do not claim macOS `pmset displaysleepnow` equivalence until confirmed on Dell Fedora.
 
-### Troubleshooting / uninstall
+Dangerous session actions only run after explicit confirmation. A missing Zenity dialog fails closed.
 
-The extension should be Running in Preferences → Extensions. If native results do not appear after an update, Ulauncher may not yet have indexed the newly created files. Inspect `~/.local/share/applications/riccilnl-ulauncher-power-*.desktop`. No system privileges are required.
+## Legacy cleanup and rollback
 
-Before removing this extension, clean up the desktop entries from the installed extension directory:
+There are no `.desktop` launchers in the current architecture. Prior versions generated `~/.local/share/applications/riccilnl-ulauncher-power-*.desktop`. The updated extension removes only these namespaced files **when they have the extension ownership marker**. It skips symlinks and unrelated entries. No GNOME power settings are modified by migration.
+
+You can check legacy entries with:
 
 ```sh
-python3 ~/.local/share/ulauncher/extensions/com.github.riccilnl.ulauncher-power-session/desktop_shortcuts.py remove
+python3 ~/.local/share/ulauncher/extensions/com.github.riccilnl.ulauncher-power-session/desktop_shortcuts.py list
 ```
 
-Only files carrying this extension's ownership marker are removed. The original GNOME power settings and Awake state are never deleted by shortcut cleanup.
+The standalone `desktop_shortcuts.py remove` command also cleans old entries but **can no longer create them**.
 
-### Tests
+## Tests and outstanding real-machine checks
 
 ```sh
-python3 -m py_compile main.py desktop_shortcuts.py desktop_action.py powerctl.py
+python3 -m py_compile main.py desktop_action.py desktop_shortcuts.py powerctl.py tests/*.py
 python3 -m unittest discover -s tests -v
 ```
 
-Unit tests simulate execution and **never suspend, log out, reboot, shut down or blank the real display**. Actual UI and physical monitor behavior must be accepted on your Dell Fedora laptop.
+Tests mock all sleep, shutdown, reboot, logout and GNOME setting operations. Outstanding: user-visible confirmation that the seven commands appear **only** in Ulauncher, one Enter for Sleep Display, and continued SSH/Cora reachability with keyboard/touchpad wake after actual display-off.

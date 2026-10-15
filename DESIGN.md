@@ -1,37 +1,41 @@
-# Decision: single-Enter native Ulauncher actions
+# Architecture / decision — Ulauncher-native app-like keywords
 
-## Why previous approach failed
+## Fixed user requirements
 
-Ulauncher 5 `ExtensionKeywordResultItem.on_enter` returns `SetUserQueryAction(keyword + ' ')`; it doesn't execute the operation. Then `KeywordQueryEvent` returned an operation, then custom double confirmation: the user saw **three Enters** for Sleep Display.
+1. Search `sleep` / `awake` / `lock` / `suspend` / `logout` / `restart` / `shutdown` directly, no `power` prefix.
+2. First Enter executes without nested Ulauncher menus, especially `sleep`.
+3. No generated GNOME application icons; all command icons are the same ⚡.
+4. Awake toggles idle auto-suspend on **AC + battery**, preserves lid-close behavior and prior settings; screen may still blank.
+5. The display-off technique must not force full system suspend or make SSH/Cora unreachable.
+6. Dangerous commands require **only one external OS confirmation**, never another Ulauncher menu.
 
-## Frozen solution
+## Chosen community design
 
-Use Ulauncher 5 native app search instead of extension keyword search:
-`AppResultItem.on_enter` → `LaunchAppAction` → `desktop_action.py` → existing `powerctl.py`.
+See [friday/ulauncher-gnome-settings](https://github.com/friday/ulauncher-gnome-settings). Ulauncher v5 extension keywords are globally searchable, but Ulauncher's default `ExtensionKeywordResultItem.on_enter()` inserts `keyword + ' '` instead of directly executing. Its `KeywordQueryEvent` fires on that input change. The plugin now **executes at that event and immediately returns `HideWindowAction`**, instead of rendering a second result.
 
-The GitHub Ulauncher extension remains the installation and update entry; `main.py` auto-registers seven managed `.desktop` entries on startup. There are no keyword preferences and no second Ulauncher command menu.
+| Module | Contract |
+| --- | --- |
+| `manifest.json` | Seven Ulauncher v2 keyword preferences with display names and ⚡ icon |
+| `main.py` | One event → detached `desktop_action.py` → `HideWindowAction` (no submenu) |
+| `desktop_action.py` | Awake/Lock/Sleep direct, disruptive commands via one Zenity confirmation |
+| `powerctl.py` | Existing AC+battery GSettings snapshot/restore with flock and rollback |
+| `desktop_shortcuts.py` | **Removal-only** migration for seven old app entries, ownership marker required |
+| `tests/` | First-Enter dispatch, duplicate-event debounce, argument guards, migration, power tests |
 
-`desktop_shortcuts.py`:
-- Only touches namespaced `riccilnl-ulauncher-power-*.desktop` files.
-- Uses ownership marker, refuses foreign files/symlinks, atomic replacement, idempotence.
-- User can remove entries using `python3 desktop_shortcuts.py remove`.
-- Does not mutate existing user shortcuts/other files, requires no root.
+## Explicit trade-offs
 
-`desktop_action.py`:
-- `sleep` first Enter launches the existing GNOME display blanking asynchronously (no confirmation).
-- `awake` and `lock` first Enter run directly.
-- `suspend`, `logout`, `restart`, `shutdown` require native `zenity` dialog before any dangerous command.
-- A missing or dismissed confirmation fails closed.
+- The keyword pattern is a **community workaround**, not an official first-Enter execution hook. The query may briefly display `sleep ` before it closes. Typing that exact keyword with a space (even without Enter) will also invoke it. Avoid nonempty argument execution; disruptive operations show Zenity confirmation.
+- Keyword display text does not dynamically show Awake ON/OFF, but the operation posts a notification.
+- Suppress repeated identical action events within 1.5 seconds to prevent double toggle.
+- No mutation of Ulauncher's `shortcuts.json`, no `.desktop` files created or modified except cleanup of previously generated owned launchers.
 
-Keep `powerctl.py` unchanged, preserving AC+battery backup, rollback, lid-close policy, and avoiding raw Mutter PowerSaveMode writes.
+## Acceptance
 
-## Validation
+- [x] Upstream Ulauncher v5 code supports the SetUserQueryAction → KeywordQueryEvent → HideWindowAction sequence.
+- [x] GitHub repository source uses seven keyword preferences, no app-generating startup.
+- [ ] CI mocked tests pass and Fedora Ulauncher 5 API integration tested.
+- [ ] Actual existing GNOME app icons removed on next plugin update/start.
+- [ ] Actual Ulauncher command first Enter on Dell Fedora (Sleep Display and Awake).
+- [ ] Display-off, wake, SSH/Cora and lid-close behaviors verified in both AC/battery conditions.
 
-- [x] Ulauncher 5 source confirms native desktop app search first Enter is `LaunchAppAction`.
-- [x] Ulauncher 5 source confirms app directory inotify watcher.
-- [ ] Source file syntax, desktop parsing, simulated dispatch tests in the installed Fedora environment.
-- [ ] After actual GitHub update: shortcut names and icon in Ulauncher, first Enter sleep.
-- [ ] Physical LCD off, reliable wake, Cora/SSH continuity on both AC and battery.
-- [ ] GNOME confirmation behavior and safe uninstall cleanup.
-
-No claim of macOS physical display-off equivalence before Dell acceptance.
+Do not claim field acceptance from mocked tests.

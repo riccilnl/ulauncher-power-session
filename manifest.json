@@ -1,11 +1,61 @@
 {
   "required_api_version": "^2.0.0",
   "name": "GNOME Power & Session",
-  "description": "One-Enter GNOME power commands in native Ulauncher app search",
+  "description": "One-Enter Ulauncher power and session commands without GNOME app icons",
   "developer_name": "Ricci",
   "icon": "images/bolt-v2.svg",
   "options": {
-    "query_debounce": 0.1
+    "query_debounce": 0.04
   },
-  "preferences": []
+  "preferences": [
+    {
+      "id": "awake_keyword",
+      "type": "keyword",
+      "name": "Awake",
+      "description": "Toggle idle-suspend prevention on AC and battery",
+      "default_value": "awake"
+    },
+    {
+      "id": "sleep_keyword",
+      "type": "keyword",
+      "name": "Sleep Display",
+      "description": "Blank the display without suspending the computer",
+      "default_value": "sleep"
+    },
+    {
+      "id": "lock_keyword",
+      "type": "keyword",
+      "name": "Lock",
+      "description": "Lock the GNOME session",
+      "default_value": "lock"
+    },
+    {
+      "id": "suspend_keyword",
+      "type": "keyword",
+      "name": "Suspend",
+      "description": "Suspend the computer (confirmation required)",
+      "default_value": "suspend"
+    },
+    {
+      "id": "logout_keyword",
+      "type": "keyword",
+      "name": "Log Out",
+      "description": "Log out of GNOME (confirmation required)",
+      "default_value": "logout"
+    },
+    {
+      "id": "restart_keyword",
+      "type": "keyword",
+      "name": "Restart",
+      "description": "Restart the computer (confirmation required)",
+      "default_value": "restart"
+    },
+    {
+      "id": "shutdown_keyword",
+      "type": "keyword",
+      "name": "Shut Down",
+      "description": "Power off the computer (confirmation required)",
+      "default_value": "shutdown"
+    }
+  ]
 }
