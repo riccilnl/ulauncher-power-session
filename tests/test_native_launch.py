@@ -52,7 +52,10 @@ class NativeLaunchTests(unittest.TestCase):
         self.assertEqual(remove_launchers(self.dir), [])
 
     def test_GNOME_desktop_files_and_native_search(self):
-        import gi
+        try:
+            import gi
+        except ImportError:
+            self.skipTest("PyGObject unavailable; GNOME integration needs Fedora")
         gi.require_version("Gio", "2.0")
         from gi.repository import Gio
         from ulauncher.utils.fuzzy_search import get_score
@@ -83,6 +86,13 @@ class NativeLaunchTests(unittest.TestCase):
             self.assertEqual(dispatch(name, runner=run, notifier=Mock()), 0)
             self.assertEqual(run.call_count, 1)
             self.assertEqual(run.call_args.args[0][0], "zenity")
+
+    def test_missing_confirmation_dialog_fails_closed(self):
+        run = Mock(side_effect=OSError("zenity not installed"))
+        notice = Mock()
+        self.assertEqual(dispatch("shutdown", runner=run, notifier=notice), 1)
+        self.assertEqual(run.call_count, 1)
+        notice.assert_called_once()
 
     def test_dangerous_confirm_then_execute(self):
         run = Mock(side_effect=[subprocess.CompletedProcess([], 0, "", ""),
