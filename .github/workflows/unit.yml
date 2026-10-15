@@ -1,0 +1,17 @@
+name: Python unit tests
+on:
+  push:
+    branches: [main, feat/single-enter-native-launchers]
+  pull_request:
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check syntax
+        run: python -m py_compile main.py desktop_action.py desktop_shortcuts.py powerctl.py tests/*.py
+      - name: Run mocked tests (no power actions)
+        run: python -m unittest discover -s tests -v
